@@ -4,11 +4,6 @@ import logger from '../../utils/logger.js';
 import clipboardy from 'clipboardy';
 import { copyToClipboard } from '../../utils/clipboard.js';
 
-const defaultMoveOptions = {
-  moveDelay: 200,
-  randomizeMoveDelay: true,
-};
-
 class ChatGPTProvider implements Provider {
   public model = '';
 
@@ -17,7 +12,10 @@ class ChatGPTProvider implements Provider {
 
     function click(selector: string) {
       return page.click(selector);
-      // return page.realCursor.click(selector, defaultMoveOptions);
+      // return page.realCursor.click(selector, {
+      //   moveDelay: 200,
+      //   randomizeMoveDelay: true,
+      // });
     }
 
     // Go to the ChatGPT website
@@ -86,7 +84,7 @@ class ChatGPTProvider implements Provider {
     }
 
     await page.waitForSelector("[data-testid='copy-turn-action-button']");
-    await click("[data-testid='copy-turn-action-button']", defaultMoveOptions);
+    await click("[data-testid='copy-turn-action-button']");
 
     const result = await clipboardy.read();
     logger.info(`[runJourney] Result: ${result}`);

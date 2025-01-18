@@ -9,14 +9,15 @@ function formatElapsedTime(msDiff: number): string {
 
   const totalSeconds = Math.floor(msDiff / 1000);
   const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  const remainingSeconds = totalSeconds % 3600;
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
 
-  const hh = hours.toString().padStart(2, '0');
-  const mm = minutes.toString().padStart(2, '0');
-  const ss = seconds.toString().padStart(2, '0');
-
-  return `${hh}:${mm}:${ss}`;
+  return [
+    hours.toString().padStart(2, '0'),
+    minutes.toString().padStart(2, '0'),
+    seconds.toString().padStart(2, '0'),
+  ].join(':');
 }
 
 /**
@@ -43,16 +44,17 @@ function getElapsedTimeString(task: Task): string {
  * Render a table row for a single task
  */
 function renderTaskRow(task: Task): string {
-  // Show “View Output” button if we have a result
-  // but open in a new window by using `target="_blank"`.
-  const showResultButton = task.result
-    ? `<a
+  // Show “View Output” button if we have a valid result URL
+  const showResultButton =
+    typeof task.result === 'string' && task.result.trim() !== ''
+      ? `<a
          href="/tasks/${task.id}/markdown?render=1"
          target="_blank"
+         class="result-link"
        >
          Show Output
        </a>`
-    : '—';
+      : '—';
 
   return `
     <tr>
@@ -76,70 +78,71 @@ export function renderTasksTableBody(tasks: Task[]): string {
 /**
  * Render the entire page for handleGetIndex
  */
-export function renderTasksPage(tasks: Task[]): string {
-  const rowsHtml = renderTasksTableBody(tasks);
+const PAGE_TEMPLATE = `
+  <html>
+    <head>
+      <title>Prompt ChatGPT/Claude</title>
+      <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    </head>
+    <body>
+      <h1>Parallel Job Queue Demo</h1>
 
-  return `
-    <html>
-      <head>
-        <title>Prompt ChatGPT/Claude</title>
-        <script src="https://unpkg.com/htmx.org@1.9.2"></script>
-      </head>
-      <body>
-        <h1>Parallel Job Queue Demo</h1>
+      <form hx-post="/tasks" hx-target="#tasks-tbody" hx-swap="innerHTML">
+        <label for="prompt">Prompt:</label><br/>
+        <textarea id="prompt" name="prompt" rows="15" cols="150"></textarea><br/><br/>
+        <div style="display: inline-block;">
+          <label for="model" style="font-size: 1.2em;">Model:</label>
+          <select id="model" name="model" style="width: 200px; font-size: 1.2em;">
+            <!-- We'll fill the list of providers in the controller for now -->
+          </select>
+          <button type="submit" style="margin-left: 10px; font-size: 1.2em;">Add Task</button>
+        </div>
+      </form>
 
-        <form hx-post="/tasks" hx-target="#tasks-tbody" hx-swap="innerHTML">
-          <label for="prompt">Prompt:</label><br/>
-          <textarea id="prompt" name="prompt" rows="15" cols="150"></textarea><br/><br/>
-          <div style="display: inline-block;">
-            <label for="model" style="font-size: 1.2em;">Model:</label>
-            <select id="model" name="model" style="width: 200px; font-size: 1.2em;">
-              <!-- We'll fill the list of providers in the controller for now -->
-            </select>
-            <button type="submit" style="margin-left: 10px; font-size: 1.2em;">Add Task</button>
-          </div>
-        </form>
+      <!-- Auto refresh partial every 2s if you wish -->
+      <div
+        hx-get="/tasks/partial"
+        hx-trigger="every 1s"
+        hx-target="#tasks-tbody"
+        hx-swap="innerHTML"
+      ></div>
 
-        <!-- Auto refresh partial every 2s if you wish -->
-        <div
+      <div>
+        <h2 style="display: inline-block;">
+          Tasks
+        </h2>
+        <button
           hx-get="/tasks/partial"
-          hx-trigger="every 1s"
+          hx-trigger="every 2s"
           hx-target="#tasks-tbody"
           hx-swap="innerHTML"
-        ></div>
+          style="font-size: 1.2em; margin-left: 10px;"
+        >
+          Refresh Tasks
+        </button>
+      </div>
+      <table border="1" width="80%">
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Model</th>
+            <th>Status</th>
+            <th>Elapsed</th>
+            <th>Chat URL</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="tasks-tbody">
+          {rows}
+        </tbody>
+      </table>
 
-        <div>
-          <h2 style="display: inline-block;">
-            Tasks
-          </h2>
-          <button
-            hx-get="/tasks/partial"
-            hx-trigger="every 2s"
-            hx-target="#tasks-tbody"
-            hx-swap="innerHTML"
-            style="font-size: 1.2em; margin-left: 10px;"
-          >
-            Refresh Tasks
-          </button>
-        </div>
-        <table border="1" width="80%">
-          <thead>
-            <tr>
-              <th>Created</th>
-              <th>Model</th>
-              <th>Status</th>
-              <th>Elapsed</th>
-              <th>Chat URL</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody id="tasks-tbody">
-            ${rowsHtml}
-          </tbody>
-        </table>
+      <div id="modal-content"></div>
+    </body>
+  </html>
+`;
 
-        <div id="modal-content"></div>
-      </body>
-    </html>
-  `;
+export function renderTasksPage(tasks: Task[]): string {
+  const rowsHtml = renderTasksTableBody(tasks);
+  return PAGE_TEMPLATE.replace('{rows}', rowsHtml);
 }
