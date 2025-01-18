@@ -13,15 +13,15 @@ export class JobQueue {
     this.queue = new GenericQueue();
 
     this.queue.on('start', (jobId) => {
-      logger.info(`[JobQueue] Job started: ${jobId}`);
+      logger.info({ jobId }, `[JobQueue] Job started`);
     });
 
     this.queue.on('done', (jobId) => {
-      logger.info(`[JobQueue] Job finished: ${jobId}`);
+      logger.info({ jobId }, `[JobQueue] Job finished`);
     });
 
-    this.queue.on('error', ({ id, err }) => {
-      logger.error(`[JobQueue] Job error for ${id}`, err);
+    this.queue.on('error', ({ jobId, err }) => {
+      logger.error({ jobId, err }, `[JobQueue] Job error`);
     });
   }
 
@@ -65,7 +65,7 @@ export class JobQueue {
     } catch (err) {
       task.status = JobStatus.Failed;
       task.error = String(err);
-      logger.error(`[JobQueue] Job error for ${task.id}`, err);
+      logger.error({ jobId: task.id, err }, `[JobQueue] Job error`);
     } finally {
       await task.saveToHistory();
     }

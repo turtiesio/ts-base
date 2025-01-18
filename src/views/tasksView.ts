@@ -143,7 +143,7 @@ const PAGE_TEMPLATE = `
         <label for="prompt">Prompt:</label><br/>
         <textarea id="prompt" name="prompt" rows="15" cols="150"></textarea><br/><br/>
         <div style="display: inline-block;">
-          <div class="radio-group" id="model-options">
+          <div class="radio-group" id="model-options" style="margin-bottom: 10px; display: inline-block;">
             <!-- We'll fill the list of providers in the controller for now -->
           </div>
           <button type="submit" style="margin-left: 10px; font-size: 1.2em;">Add Task</button>
