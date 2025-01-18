@@ -6,6 +6,7 @@ import {
   handleGetTasksPartial,
   handlePostTask,
   handleGetTaskMarkdown,
+  handleGetTaskPrompt,
 } from './controllers/tasksController.js';
 
 const app = new Hono();
@@ -15,6 +16,7 @@ app.get('/', handleGetIndex);
 app.get('/tasks/partial', handleGetTasksPartial);
 app.post('/tasks', handlePostTask);
 app.get('/tasks/:id/markdown', handleGetTaskMarkdown);
+app.get('/tasks/:id/prompt', handleGetTaskPrompt);
 
 serve({ fetch: app.fetch, port: 3000 });
 logger.info('Server started on http://localhost:3000');

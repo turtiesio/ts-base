@@ -12,81 +12,110 @@ class ChatGPTProvider implements Provider {
 
     function click(selector: string) {
       return page.click(selector);
-      // return page.realCursor.click(selector, {
-      //   moveDelay: 200,
-      //   randomizeMoveDelay: true,
-      // });
     }
 
     // Go to the ChatGPT website
     await page.goto('https://chatgpt.com', { waitUntil: 'networkidle2' });
 
-    // You’d do your login checks if needed...
-    logger.info('[runJourney] Page loaded. Checking if user is logged in...');
+    // Check if the user is logged in
+    {
+      // You’d do your login checks if needed...
+      logger.info('[runJourney] Page loaded. Checking if user is logged in...');
 
-    while (true) {
-      if (
-        !page.url().includes('auth/login') &&
-        !page.url().includes('auth.openai.com') &&
-        page.url().includes('chatgpt.com')
-      ) {
-        logger.info('[runJourney] User just logged in');
-        break;
+      while (true) {
+        if (
+          !page.url().includes('auth/login') &&
+          !page.url().includes('auth.openai.com') &&
+          page.url().includes('chatgpt.com')
+        ) {
+          logger.info('[runJourney] User just logged in');
+          break;
+        }
+
+        logger.debug('[runJourney] Waiting for user to login');
+        await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
       }
 
-      logger.debug('[runJourney] Waiting for user to login');
-      await page.waitForNavigation({ waitUntil: 'domcontentloaded' });
+      logger.info('[runJourney] User is logged in');
     }
 
-    logger.info('[runJourney] User is logged in');
+    // Switch to the model
+    {
+      logger.info('[runJourney] Switching model');
 
-    logger.info('[runJourney] Switching model');
+      await click("main [data-testid='model-switcher-dropdown-button'] > svg");
 
-    await click("main [data-testid='model-switcher-dropdown-button'] > svg");
+      const selectors = [
+        '[data-testid="model-switcher-o1-pro"] > div',
+        '[data-testid="model-switcher-o1-mini"] > div',
+        '[data-testid="model-switcher-o1"] > div',
+        '[data-testid="model-switcher-gpt-4o"] > div',
+      ];
 
-    await page.waitForSelector("[data-testid='model-switcher-o1-pro']", {
-      timeout: 3000,
-    });
-    await page.waitForSelector("[data-testid='model-switcher-o1']", {
-      timeout: 3000,
-    });
+      // Wait for all selectors to appear
+      for (const selector of selectors) {
+        await page.waitForSelector(selector, {
+          timeout: 3000,
+          visible: true,
+        });
+      }
 
-    logger.info(`[runJourney] Clicking model: ${this.model}`);
+      // Wait for a bit
+      await new Promise((r) => setTimeout(r, 500));
 
-    await click('[data-testid="model-switcher-o1-pro"] > div');
-
-    logger.info('[runJourney] Writing prompt to textarea');
-
-    await click('#prompt-textarea');
-
-    logger.info('[runJourney] Copy and paste prompt');
-
-    copyToClipboard(prompt);
-
-    await page.keyboard.down('Shift');
-    await page.keyboard.press('Insert');
-    await page.keyboard.up('Shift');
-
-    logger.info('[runJourney] Submitting prompt');
-
-    await page.keyboard.press('Enter');
-
-    logger.info('[runJourney] Prompt submitted, waiting for response...');
-
-    // Wait for prompt to finish
-    while (await page.$('[data-testid="stop-button"]')) {
-      await new Promise((r) => setTimeout(r, 200));
-
-      // TODO: Emit job progress
-      // TODO: Handle job error
-      // TODO: Handle job cancellation
-      // TODO: Handle job timeout
+      logger.info(`[runJourney] Clicking model: ${this.model}`);
+      await click(`[data-testid="model-switcher-${this.model}"] > div`);
     }
 
-    await page.waitForSelector("[data-testid='copy-turn-action-button']");
-    await click("[data-testid='copy-turn-action-button']");
+    // Send the prompt
+    {
+      logger.info('[runJourney] Coping and pasting prompt');
+      await click('#prompt-textarea');
+
+      copyToClipboard(prompt);
+
+      await page.keyboard.down('Shift');
+      await page.keyboard.press('Insert');
+      await page.keyboard.up('Shift');
+
+      logger.info('[runJourney] Submitting prompt');
+      await page.keyboard.press('Enter');
+    }
+
+    // Wait for the prompt to be completed
+    {
+      logger.info('[runJourney] Prompt submitted, waiting for response...');
+
+      // Wait for prompt to finish
+      while (await page.$('[data-testid="stop-button"]')) {
+        await new Promise((r) => setTimeout(r, 200));
+
+        // TODO: Emit job progress
+        // TODO: Handle job error
+        // TODO: Handle job cancellation
+        // TODO: Handle job timeout
+      }
+    }
+
+    // Click copy button
+    {
+      // Wait for at least one matching element to appear
+      await page.waitForSelector("[data-testid='copy-turn-action-button']");
+
+      // Get all matching elements
+      const allButtons = await page.$$(
+        "[data-testid='copy-turn-action-button']",
+      );
+
+      // Select the last button
+      const lastButton = allButtons[allButtons.length - 1];
+
+      // Click the last button
+      await lastButton.click();
+    }
 
     const result = await clipboardy.read();
+
     logger.info(`[runJourney] Result: ${result}`);
 
     // Return the conversation text

@@ -4,7 +4,7 @@ import {
   createTaskRecord,
   listAllTasks,
   getTaskById,
-} from '../services/history/HistoryService.js';
+} from '../services/taskRepository/TaskRepository.js';
 import { JobQueue } from '../services/JobQueue.js';
 import logger from '../utils/logger.js';
 import { renderTasksPage, renderTasksTableBody } from '../views/tasksView.js';
@@ -28,17 +28,44 @@ jobQueue.registerProvider(new ChatGPTProviderGPT4O());
 jobQueue.registerProvider(new ClaudeProvider());
 
 /**
+ * Return the prompt for a given task
+ */
+export async function handleGetTaskPrompt(c: Context) {
+  const id = c.req.param('id');
+  const task = await getTaskById(id);
+  if (!task) {
+    return c.text('Task not found.', 404);
+  }
+  // A simple HTML display of the prompt
+  const html = `
+    <html>
+      <head><title>Task ${id} Prompt</title></head>
+      <body>
+        <h1>Prompt for Task: ${id}</h1>
+        <pre>${task.prompt}</pre>
+      </body>
+    </html>
+  `;
+  return c.html(html);
+}
+
+/**
  * Return full page with table & form
  */
 export async function handleGetIndex(c: Context) {
   const tasks = await listAllTasks();
+
   // Build provider options for the model select
   const providerOptions = jobQueue
     .getProviders()
-    .map((p) => `<option value="${p}">${p}</option>`)
+    .map(
+      (p) =>
+        `<label><input type="radio" name="model" value="${p}"> ${p}</label>`,
+    )
     .join('');
 
   let htmlPage = renderTasksPage(tasks);
+
   // Insert the <option> list
   htmlPage = htmlPage.replace(
     "<!-- We'll fill the list of providers in the controller for now -->",
@@ -60,9 +87,10 @@ export async function handleGetTasksPartial(c: Context) {
  * Create a new task
  */
 export async function handlePostTask(c: Context) {
-  const { prompt, model } = await c.req.parseBody<{
+  const { prompt, model, title } = await c.req.parseBody<{
     prompt: string;
     model: string;
+    title?: string;
   }>();
 
   if (!prompt || !model) {
@@ -70,7 +98,7 @@ export async function handlePostTask(c: Context) {
     return c.html('Missing prompt or model', 400);
   }
 
-  const taskRecord = await createTaskRecord(model, prompt);
+  const taskRecord = await createTaskRecord(model, prompt, title);
   jobQueue.enqueueTask(taskRecord);
 
   // Re-render the partial tasks table

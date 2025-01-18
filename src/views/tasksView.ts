@@ -56,14 +56,20 @@ function renderTaskRow(task: Task): string {
        </a>`
       : '—';
 
+  const showPromptLink = `
+    <a href="/tasks/${task.id}/prompt" target="_blank" class="prompt-link">Show Input</a>
+  `;
+
   return `
     <tr>
+      <td>${task.title ?? '—'}</td>
       <td>${new Date(task.createdAt).toLocaleString()}</td>
       <td>${task.model}</td>
       <td>${task.status}</td>
       <td>${getElapsedTimeString(task)}</td>
       <td>${task.chatUrl ? `<a href="${task.chatUrl}" target="_blank">Open Chat</a>` : '—'}</td>
       <td>${showResultButton}</td>
+      <td>${showPromptLink}</td>
     </tr>
   `;
 }
@@ -83,18 +89,63 @@ const PAGE_TEMPLATE = `
     <head>
       <title>Prompt ChatGPT/Claude</title>
       <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+      <style>
+        /* Example "beautiful" style for radio group: */
+        .radio-group label {
+          display: inline-block;
+          margin-right: 20px;
+          padding: 5px 10px;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .radio-group input[type="radio"] {
+          margin-right: 5px;
+        }
+      </style>
+      <script>
+        document.addEventListener('DOMContentLoaded', () => {
+          // Restore last-selected model from localStorage
+          const storedModel = localStorage.getItem('selectedModel');
+          if (storedModel) {
+            const radio = document.querySelector(\`input[name="model"][value="\${storedModel}"]\`);
+            if (radio) {
+              radio.checked = true;
+            }
+          }
+
+          // Listen for radio changes
+          const radios = document.querySelectorAll('input[name="model"]');
+          radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+              localStorage.setItem('selectedModel', radio.value);
+            });
+          });
+
+          // Shortcut: Meta + Enter to submit the form
+          const form = document.querySelector('form');
+          const promptTextarea = document.querySelector('#prompt');
+          promptTextarea.addEventListener('keydown', (e) => {
+            if (e.metaKey && e.key === 'Enter') {
+              e.preventDefault();
+              form.submit();
+            }
+          });
+        });
+      </script>
     </head>
     <body>
       <h1>Parallel Job Queue Demo</h1>
 
       <form hx-post="/tasks" hx-target="#tasks-tbody" hx-swap="innerHTML">
+        <label for="title">Title (optional):</label><br/>
+        <input id="title" name="title" type="text" style="width: 400px;" /><br/><br/>
         <label for="prompt">Prompt:</label><br/>
         <textarea id="prompt" name="prompt" rows="15" cols="150"></textarea><br/><br/>
         <div style="display: inline-block;">
-          <label for="model" style="font-size: 1.2em;">Model:</label>
-          <select id="model" name="model" style="width: 200px; font-size: 1.2em;">
+          <div class="radio-group" id="model-options">
             <!-- We'll fill the list of providers in the controller for now -->
-          </select>
+          </div>
           <button type="submit" style="margin-left: 10px; font-size: 1.2em;">Add Task</button>
         </div>
       </form>
@@ -124,12 +175,14 @@ const PAGE_TEMPLATE = `
       <table border="1" width="80%">
         <thead>
           <tr>
+            <th>Title</th>
             <th>Created</th>
             <th>Model</th>
             <th>Status</th>
             <th>Elapsed</th>
             <th>Chat URL</th>
             <th>Result</th>
+            <th>Prompt</th>
           </tr>
         </thead>
         <tbody id="tasks-tbody">

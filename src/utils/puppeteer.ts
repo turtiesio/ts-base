@@ -18,6 +18,7 @@ async function getBrowserConnection(): Promise<ConnectResult> {
     ignoreAllFlags: false,
     customConfig: {
       userDataDir: `${process.cwd()}/.chrome`,
+      port: 9222,
     },
   });
   logger.debug('[puppeteer] Browser launched');

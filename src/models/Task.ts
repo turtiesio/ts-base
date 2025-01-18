@@ -6,6 +6,7 @@ export interface Task {
   startedAt?: number; // <--- Add this
   model: string;
   prompt: string;
+  title?: string; // <--- Added
   status: JobStatus;
   chatUrl?: string;
   result?: string;
